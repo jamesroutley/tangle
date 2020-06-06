@@ -1,6 +1,6 @@
 # Tangle
 
-`Tangle` is a literate programming tool designed to make the writing of software
+Tangle is a literate programming tool designed to make the writing of software
 tutorials and blog posts as easy as possible.
 
 ## Some background on literate programming
@@ -87,7 +87,7 @@ numbers.forEach(number => {
 ### Code block numbers
 
 This is normal Markdown, with one exception. After the language definition next
-to each code block, there's a number. This number tells `Tangle` the order to
+to each code block, there's a number. This number tells Tangle the order to
 put the code snippets in. Here, we're writing the snippets in the order they're
 defined, but you can use this to describe your code in a different order to how
 it's run.
@@ -98,7 +98,7 @@ sophisticated one.
 
 ### Running Tangle
 
-We can run `Tangle` on this file to pull out the bits of JavaScript and write
+We can run Tangle on this file to pull out the bits of JavaScript and write
 them to a file:
 
 ```sh
@@ -107,3 +107,21 @@ $ tangle --outfile iteration.js README.md
 
 This generates a file `iteration.js`, which we can successfully run, letting us
 know our code is valid.
+
+## Features
+
+Tangle supports:
+
+- Placing code blocks in the outputted file in a different order to how they're defined
+- Rewriting code blocks
+- Watching the input file and automatically re-computing
+
+## API
+
+```
+Usage:  tangle <file.md>
+  -outfile string
+        The name of a file to write the output to
+  -watch
+        Watch the input file, and recompile when it changes
+```

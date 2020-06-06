@@ -17,10 +17,19 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+var Usage = func() {
+	fmt.Fprintln(os.Stderr, "Usage:  tangle <file.md>")
+	flag.PrintDefaults()
+}
+
 var (
 	outFile string
 	watch   bool
 )
+
+func init() {
+	flag.Usage = Usage
+}
 
 func main() {
 	flag.StringVar(&outFile, "outfile", "", "The name of a file to write the output to")
@@ -29,7 +38,9 @@ func main() {
 
 	filename := flag.Arg(0)
 	if filename == "" {
-		log.Fatal("usage: go run main.go <file.md>")
+		fmt.Fprintln(os.Stderr, "Error: no input file supplied")
+		Usage()
+		os.Exit(1)
 	}
 
 	if err := run(filename); err != nil {
