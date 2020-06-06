@@ -39,17 +39,71 @@ Markdown, pulls out any source code defined in code blogs, stitches them
 together and writes them to a file. You can then run the file (or run tests
 against it) to check that everything's working as expected.
 
-## An example
+## A simple example
 
-Let's imagine we've written a blog post about recursive Fibonacci number
-generation in Python:
+Let's imagine we've written a blog post about iterating over arrays in
+JavaScript:
 
 ````markdown
-# Generating
+# Array iteration in JavaScript
 
-def
+Let's look at three ways to iterate over an array in JavaScript. In each
+example, we'll iterate over the array and print out each item.
 
-```javascript
-console.log("hello");
+Let's define the array to iterate over:
+
+```javascript 1
+let numbers = [1, 2, 3, 4, 5];
+```
+
+The first way is to keep track of an incrementing number `i`, which we use to
+index into the array:
+
+```javascript 2
+for (let i = 0; i < numbers.length; i++) {
+  console.log(numbers[i]);
+}
+```
+
+Next, JavaScript has a `for...of` statement, which lets us iterate without
+having to manage an index:
+
+```javascript 3
+for (let number of numbers) {
+  console.log(number);
+}
+```
+
+Finally, JavaScript arrays have a method `forEach`, which takes a function and
+calls it for each item in the array:
+
+```javascript 4
+numbers.forEach(number => {
+  console.log(number);
+});
 ```
 ````
+
+### Code block numbers
+
+This is normal Markdown, with one exception. After the language definition next
+to each code block, there's a number. This number tells `Tangle` the order to
+put the code snippets in. Here, we're writing the snippets in the order they're
+defined, but you can use this to describe your code in a different order to how
+it's run.
+
+You can also repeat code block numbers to redefine a particular block. This is
+useful if you want to show for example a naive implementation and then a more
+sophisticated one.
+
+### Running Tangle
+
+We can run `Tangle` on this file to pull out the bits of JavaScript and write
+them to a file:
+
+```sh
+$ tangle --outfile iteration.js README.md
+```
+
+This generates a file `iteration.js`, which we can successfully run, letting us
+know our code is valid.
