@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/jamesroutley/tangle/cmd"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
@@ -32,21 +33,25 @@ func init() {
 }
 
 func main() {
-	flag.StringVar(&outFile, "outfile", "", "The name of a file to write the output to")
-	flag.BoolVar(&watch, "watch", false, "Watch the input file, and recompile when it changes")
-	flag.Parse()
-
-	filename := flag.Arg(0)
-	if filename == "" {
-		fmt.Fprintln(os.Stderr, "Error: no input file supplied")
-		Usage()
-		os.Exit(1)
-	}
-
-	if err := run(filename); err != nil {
-		log.Fatal(err)
-	}
+	cmd.Execute()
 }
+
+// func main() {
+// 	flag.StringVar(&outFile, "outfile", "", "The name of a file to write the output to")
+// 	flag.BoolVar(&watch, "watch", false, "Watch the input file, and recompile when it changes")
+// 	flag.Parse()
+
+// 	filename := flag.Arg(0)
+// 	if filename == "" {
+// 		fmt.Fprintln(os.Stderr, "Error: no input file supplied")
+// 		Usage()
+// 		os.Exit(1)
+// 	}
+
+// 	if err := run(filename); err != nil {
+// 		log.Fatal(err)
+// 	}
+// }
 
 func run(filename string) error {
 
@@ -100,7 +105,7 @@ func tangleAndWriteFile(filename string) error {
 		return err
 	}
 
-	tangled, err := tangle(source)
+	tangled, err := Tangle(source)
 	if err != nil {
 		return err
 	}
@@ -120,9 +125,9 @@ func tangleAndWriteFile(filename string) error {
 	return nil
 }
 
-// tangle pulls the code out of the Markdown fenced code blocks, then
+// Tangle pulls the code out of the Markdown fenced code blocks, then
 // concatenates and returns them
-func tangle(source []byte) ([]byte, error) {
+func Tangle(source []byte) ([]byte, error) {
 	parser := goldmark.DefaultParser()
 	reader := text.NewReader(source)
 	document := parser.Parse(reader)
