@@ -3,84 +3,125 @@ package tangle
 import (
 	"bytes"
 	"fmt"
-	"strconv"
+	"io/ioutil"
 	"strings"
-
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/text"
 )
 
-type Tangler struct{}
-
-func NewTangler() *Tangler {
-	return &Tangler{}
+type CodeBlock struct {
+	Language string
+	Name     string
+	Code     string
 }
 
-func getCodeBlocksFromMarkdown(source []byte) ([]*ast.FencedCodeBlock, error) {
-	parser := goldmark.DefaultParser()
-	reader := text.NewReader(source)
-	document := parser.Parse(reader)
-
-	var codeBlocks []*ast.FencedCodeBlock
-
-	walker := func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
-		}
-
-		codeBlock, ok := n.(*ast.FencedCodeBlock)
-		if !ok {
-			return ast.WalkContinue, nil
-		}
-
-		codeBlocks = append(codeBlocks, codeBlock)
-		return ast.WalkContinue, nil
-	}
-
-	if err := ast.Walk(document, walker); err != nil {
-		return nil, err
-	}
-
-	return codeBlocks, nil
+type Tangler struct {
+	filters []Filter
 }
 
-// Tangle pulls the code out of the Markdown fenced code blocks, then
-// concatenates and returns them
-func Tangle(source []byte) ([]byte, error) {
-	codeBlocks, err := getCodeBlocksFromMarkdown(source)
+func NewTangler(options ...TanglerOption) *Tangler {
+	tangler := &Tangler{}
+	for _, option := range options {
+		option(tangler)
+	}
+	return tangler
+}
+
+func (t *Tangler) Tangle(sourceFiles ...string) ([]byte, error) {
+	codeBlocks := map[string][]*CodeBlock{}
+
+	// Pull code blocks from each of the source files
+	for _, source := range sourceFiles {
+		blocks, err := getCodeBlocksFromFile(source)
+		if err != nil {
+			return nil, err
+		}
+
+		codeBlocks[source] = blocks
+	}
+
+	// Filter out unnecessary code blocks
+	for source, blocks := range codeBlocks {
+		var filteredBlocks []*CodeBlock
+		for _, block := range blocks {
+			if !allFilters(block, t.filters...) {
+				continue
+			}
+			filteredBlocks = append(filteredBlocks, block)
+		}
+		codeBlocks[source] = filteredBlocks
+	}
+
+	// Set up efficient data structures for output generation
+	codeBlocksByName := map[string]*CodeBlock{}
+	var nameOrder []string
+	for _, source := range sourceFiles {
+		blocks := codeBlocks[source]
+
+		for _, block := range blocks {
+			name := block.Name
+
+			// Only write name if we haven't seen it before
+			// TODO: this is subtle but crucial logic - I think this needs a
+			// refactor to make this more explicit
+			if _, ok := codeBlocksByName[name]; !ok {
+				nameOrder = append(nameOrder, name)
+			}
+
+			// But always store name - that way later blocks can replace
+			// earlier ones
+			codeBlocksByName[name] = block
+		}
+	}
+
+	// Generate output
+	var output bytes.Buffer
+	for _, name := range nameOrder {
+		block := codeBlocksByName[name]
+
+		output.WriteString(block.Code)
+		output.WriteRune('\n')
+	}
+
+	return bytes.TrimSuffix(output.Bytes(), []byte("\n")), nil
+}
+
+func getCodeBlocksFromFile(filename string) ([]*CodeBlock, error) {
+	source, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var output [][]byte
-	for _, codeBlock := range codeBlocks {
-		lines, err := getCodeBlockLines(codeBlock, source)
-		if err != nil {
-			return nil, err
+	fencedCodeBlocks, err := getFencedCodeBlocksFromMarkdown(source)
+	if err != nil {
+		return nil, err
+	}
+
+	var codeBlocks []*CodeBlock
+
+	for i, block := range fencedCodeBlocks {
+		var name string
+		info := string(block.Info.Text(source))
+		if infoParts := strings.Fields(info); len(infoParts) >= 2 {
+			name = infoParts[1]
 		}
-		output = append(output, lines)
-	}
-
-	return bytes.Join(output, []byte("\n")), nil
-}
-
-func getCodeBlockLines(codeBlock *ast.FencedCodeBlock, source []byte) ([]byte, error) {
-	var lines bytes.Buffer
-	for i := 0; i < codeBlock.Lines().Len(); i++ {
-		line := codeBlock.Lines().At(i)
-		_, err := lines.Write(line.Value(source))
-		if err != nil {
-			return nil, err
+		// Default name
+		if name == "" {
+			name = fmt.Sprintf("%s:%d", filename, i)
 		}
-	}
-	return lines.Bytes(), nil
-}
 
-func getSectionNumber(info string) (int, error) {
-	parts := strings.Fields(info)
-	if len(parts) < 2 {
-		return 0, fmt.Errorf("Expected a section number")
+		var code bytes.Buffer
+		for i := 0; i < block.Lines().Len(); i++ {
+			line := block.Lines().At(i)
+			code.Write(line.Value(source))
+		}
+
+		codeBlock := &CodeBlock{
+			Language: string(block.Language(source)),
+			Name:     name,
+			Code:     code.String(),
+		}
+
+		codeBlocks = append(codeBlocks, codeBlock)
 	}
-	return strconv.Atoi(parts[1])
+
+	return codeBlocks, nil
 }

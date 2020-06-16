@@ -125,3 +125,49 @@ Usage:  tangle <file.md>
   -watch
         Watch the input file, and recompile when it changes
 ```
+
+---
+
+## Config example
+
+Use cases:
+
+- Combine code from multiple different markdown files
+- Split code from one markdown file into separate code files
+- Default ordering of blocks
+- Change order of code blocks
+- Replace blocks
+- Name blocks
+- Filter code blocks by language
+- Filter code blocks by comment? Or code itself?
+- Order
+
+Example config:
+
+```json
+{
+  "targets": [
+    {
+      "path": "step_1.py",
+      "sources": ["step1.md", "step2.md"],
+      "filters": {
+        "language": "html",
+        "regex": "^// code.c"
+      },
+      "order": [
+        "step1.md:4"
+      ]
+    }
+  ]
+}
+```
+
+TODO:
+
+- Write support for custom output order
+- Add back watch support
+- Multiple targets
+- Default config
+- Move config format to API - add support for parsing config files
+- If all names have the same prefix, remove them
+- Maybe set a different default name field

@@ -45,11 +45,8 @@ func Execute() {
 func run(cmd *cobra.Command, args []string) error {
 	filename := args[0]
 
-	source, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	code, err := tangle.Tangle(source)
+	tangler := tangle.NewTangler()
+	code, err := tangler.Tangle(filename)
 	if err != nil {
 		return err
 	}
