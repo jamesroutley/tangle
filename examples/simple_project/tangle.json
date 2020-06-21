@@ -1,0 +1,14 @@
+{
+    "targets": [
+        {
+            "outfile": "hello.js",
+            "sources": [
+                "hello.md",
+                "world.md"
+            ],
+            "filters": {
+                "language": "javascript"
+            }
+        }
+    ]
+}

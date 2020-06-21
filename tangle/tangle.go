@@ -9,8 +9,12 @@ import (
 
 type CodeBlock struct {
 	Language string
-	Name     string
-	Code     string
+	// DefaultName is the name we assign to the code block. This is:
+	// <source_name>§<block_number>
+	DefaultName string
+	// Name is the name assigned to the code block by the user. It can be empty
+	Name string
+	Code string
 }
 
 type Tangler struct {
@@ -103,10 +107,6 @@ func getCodeBlocksFromFile(filename string) ([]*CodeBlock, error) {
 		if infoParts := strings.Fields(info); len(infoParts) >= 2 {
 			name = infoParts[1]
 		}
-		// Default name
-		if name == "" {
-			name = fmt.Sprintf("%s:%d", filename, i)
-		}
 
 		var code bytes.Buffer
 		for i := 0; i < block.Lines().Len(); i++ {
@@ -115,9 +115,10 @@ func getCodeBlocksFromFile(filename string) ([]*CodeBlock, error) {
 		}
 
 		codeBlock := &CodeBlock{
-			Language: string(block.Language(source)),
-			Name:     name,
-			Code:     code.String(),
+			Language:    string(block.Language(source)),
+			DefaultName: fmt.Sprintf("%s:%d", filename, i),
+			Name:        name,
+			Code:        code.String(),
 		}
 
 		codeBlocks = append(codeBlocks, codeBlock)
