@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
 
 	"github.com/jamesroutley/tangle/tangle"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -62,34 +64,69 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// TODO: parallelise
+	group := errgroup.Group{}
+
 	for _, target := range config.Targets {
-		var options []tangle.TanglerOption
-		if target.Filters.Language != "" {
-			options = append(options, tangle.LanguageFilterOption(target.Filters.Language))
-		}
-		if target.Filters.Regex != "" {
-			re, err := regexp.Compile(target.Filters.Regex)
-			if err != nil {
+		target := target
+		group.Go(func() error {
+			var options []tangle.TanglerOption
+			if target.Filters.Language != "" {
+				options = append(options, tangle.LanguageFilterOption(target.Filters.Language))
+			}
+			if target.Filters.Regex != "" {
+				re, err := regexp.Compile(target.Filters.Regex)
+				if err != nil {
+					return err
+				}
+				options = append(options, tangle.RegexFilterOption(re))
+			}
+
+			tangler := tangle.NewTangler(options...)
+
+			if watch {
+				fw, err := newFileWatcher(target.Sources...)
+				if err != nil {
+					return err
+				}
+
+				for _ = range fw.events {
+					log.Printf("Generating %s", target.Outfile)
+					if err := runTangler(tangler, target.Sources, target.Outfile); err != nil {
+						// In watch mode, we don't want to stop the binary, but
+						// let the user fix the error
+						fmt.Fprintln(os.Stderr, err)
+					}
+				}
+				return nil
+			}
+
+			if err := runTangler(tangler, target.Sources, target.Outfile); err != nil {
 				return err
 			}
-			options = append(options, tangle.RegexFilterOption(re))
-		}
 
-		tangler := tangle.NewTangler(options...)
+			return nil
+		})
+	}
 
-		code, err := tangler.Tangle(target.Sources...)
-		if err != nil {
+	if err := group.Wait(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runTangler(tangler *tangle.Tangler, sources []string, outputFile string) error {
+	code, err := tangler.Tangle(sources...)
+	if err != nil {
+		return err
+	}
+
+	if outputFile != "" {
+		if err := ioutil.WriteFile(outputFile, code, 0644); err != nil {
 			return err
 		}
-
-		if target.Outfile != "" {
-			if err := ioutil.WriteFile(target.Outfile, code, 0644); err != nil {
-				return err
-			}
-		} else {
-			fmt.Printf("%s", code)
-		}
+	} else {
+		fmt.Printf("%s", code)
 	}
 
 	return nil

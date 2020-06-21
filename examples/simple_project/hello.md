@@ -1,7 +1,7 @@
 # Hello
 
 ```javascript
-let greeting = "hello world"
+let greeting = "hello world";
 ```
 
 ```python

@@ -1,5 +1,5 @@
 # World
 
 ```javascript
-console.log(greeting)
+console.log(greeting);
 ```
