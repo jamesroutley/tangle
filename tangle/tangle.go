@@ -9,9 +9,6 @@ import (
 
 type CodeBlock struct {
 	Language string
-	// DefaultName is the name we assign to the code block. This is:
-	// <source_name>§<block_number>
-	DefaultName string
 	// Name is the name assigned to the code block by the user. It can be empty
 	Name string
 	Code string
@@ -19,6 +16,7 @@ type CodeBlock struct {
 
 type Tangler struct {
 	filters []Filter
+	order   []string
 }
 
 func NewTangler(options ...TanglerOption) *Tangler {
@@ -30,62 +28,105 @@ func NewTangler(options ...TanglerOption) *Tangler {
 }
 
 func (t *Tangler) Tangle(sourceFiles ...string) ([]byte, error) {
-	codeBlocks := map[string][]*CodeBlock{}
+	allBlocks, err := extractAllBlocks(sourceFiles)
+	if err != nil {
+		return nil, err
+	}
 
-	// Pull code blocks from each of the source files
-	for _, source := range sourceFiles {
-		blocks, err := getCodeBlocksFromFile(source)
+	allFilteredBlocks := filterBlocks(allBlocks, t.filters)
+
+	var orderedBlocks []*CodeBlock
+	if len(t.order) > 0 {
+		var err error
+		orderedBlocks, err = explicitlyOrderBlocks(allFilteredBlocks, t.order)
 		if err != nil {
 			return nil, err
 		}
-
-		codeBlocks[source] = blocks
-	}
-
-	// Filter out unnecessary code blocks
-	for source, blocks := range codeBlocks {
-		var filteredBlocks []*CodeBlock
-		for _, block := range blocks {
-			if !allFilters(block, t.filters...) {
-				continue
-			}
-			filteredBlocks = append(filteredBlocks, block)
-		}
-		codeBlocks[source] = filteredBlocks
-	}
-
-	// Set up efficient data structures for output generation
-	codeBlocksByName := map[string]*CodeBlock{}
-	var nameOrder []string
-	for _, source := range sourceFiles {
-		blocks := codeBlocks[source]
-
-		for _, block := range blocks {
-			name := block.Name
-
-			// Only write name if we haven't seen it before
-			// TODO: this is subtle but crucial logic - I think this needs a
-			// refactor to make this more explicit
-			if _, ok := codeBlocksByName[name]; !ok {
-				nameOrder = append(nameOrder, name)
-			}
-
-			// But always store name - that way later blocks can replace
-			// earlier ones
-			codeBlocksByName[name] = block
-		}
+	} else {
+		orderedBlocks = orderBlocks(allFilteredBlocks)
 	}
 
 	// Generate output
 	var output bytes.Buffer
-	for _, name := range nameOrder {
-		block := codeBlocksByName[name]
-
+	for _, block := range orderedBlocks {
 		output.WriteString(block.Code)
 		output.WriteRune('\n')
 	}
 
 	return bytes.TrimSuffix(output.Bytes(), []byte("\n")), nil
+}
+
+func extractAllBlocks(sourceFiles []string) (allBlocks [][]*CodeBlock, err error) {
+	for _, source := range sourceFiles {
+		blocks, err := getCodeBlocksFromFile(source)
+		if err != nil {
+			return nil, err
+		}
+		allBlocks = append(allBlocks, blocks)
+	}
+	return allBlocks, nil
+}
+
+func filterBlocks(allBlocks [][]*CodeBlock, filters []Filter) (allFilteredBlocks [][]*CodeBlock) {
+	for _, file := range allBlocks {
+		var filteredBlocks []*CodeBlock
+		for _, block := range file {
+			if !allFilters(block, filters...) {
+				continue
+			}
+			filteredBlocks = append(filteredBlocks, block)
+		}
+		if len(filteredBlocks) > 0 {
+			allFilteredBlocks = append(allFilteredBlocks, filteredBlocks)
+		}
+	}
+	return allFilteredBlocks
+}
+
+func orderBlocks(blocks [][]*CodeBlock) (orderedBlocks []*CodeBlock) {
+	namedBlockIndex := map[string]int{}
+	for _, file := range blocks {
+		for _, block := range file {
+			if block.Name != "" {
+				index, ok := namedBlockIndex[block.Name]
+				if ok {
+					// We've previously seen a block with this name, replace it
+					orderedBlocks[index] = block
+					continue
+				}
+				// else write it to the list and store the index
+				orderedBlocks = append(orderedBlocks, block)
+				namedBlockIndex[block.Name] = len(orderedBlocks) - 1
+				continue
+			}
+			// Unnamed block, write it to the list
+			orderedBlocks = append(orderedBlocks, block)
+		}
+	}
+	return orderedBlocks
+}
+
+func explicitlyOrderBlocks(
+	blocks [][]*CodeBlock, order []string,
+) (orderedBlocks []*CodeBlock, err error) {
+	blocksByName := map[string]*CodeBlock{}
+	for _, file := range blocks {
+		for _, block := range file {
+			if block.Name == "" {
+				continue
+			}
+			blocksByName[block.Name] = block
+		}
+	}
+
+	for _, name := range order {
+		block, ok := blocksByName[name]
+		if !ok {
+			return nil, fmt.Errorf("the order specifies the name %s, but there's not block with that order", name)
+		}
+		orderedBlocks = append(orderedBlocks, block)
+	}
+	return orderedBlocks, nil
 }
 
 func getCodeBlocksFromFile(filename string) ([]*CodeBlock, error) {
@@ -101,7 +142,7 @@ func getCodeBlocksFromFile(filename string) ([]*CodeBlock, error) {
 
 	var codeBlocks []*CodeBlock
 
-	for i, block := range fencedCodeBlocks {
+	for _, block := range fencedCodeBlocks {
 		var name string
 		info := string(block.Info.Text(source))
 		if infoParts := strings.Fields(info); len(infoParts) >= 2 {
@@ -109,16 +150,15 @@ func getCodeBlocksFromFile(filename string) ([]*CodeBlock, error) {
 		}
 
 		var code bytes.Buffer
-		for i := 0; i < block.Lines().Len(); i++ {
-			line := block.Lines().At(i)
+		for j := 0; j < block.Lines().Len(); j++ {
+			line := block.Lines().At(j)
 			code.Write(line.Value(source))
 		}
 
 		codeBlock := &CodeBlock{
-			Language:    string(block.Language(source)),
-			DefaultName: fmt.Sprintf("%s:%d", filename, i),
-			Name:        name,
-			Code:        code.String(),
+			Language: string(block.Language(source)),
+			Name:     name,
+			Code:     code.String(),
 		}
 
 		codeBlocks = append(codeBlocks, codeBlock)

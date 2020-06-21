@@ -107,3 +107,67 @@ func TestTangle_RegexFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestTangle_NamedBlocks(t *testing.T) {
+	cases := []struct {
+		name        string
+		sourceFiles []string
+		expected    string
+	}{
+		{
+			name:        "Named blocks",
+			sourceFiles: []string{"testdata/named_blocks.md"},
+			expected:    "console.log(\"hello\");\n\nconsole.log(\"world\");\n",
+		},
+		{
+			name:        "Duplicate named block",
+			sourceFiles: []string{"testdata/named_blocks_with_duplicate.md"},
+			expected:    "console.log(\"hello world\");\n",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tangler := tangle.NewTangler()
+			output, err := tangler.Tangle(tc.sourceFiles...)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expected, string(output))
+		})
+	}
+}
+
+func TestTangle_ExplicitOrder(t *testing.T) {
+	cases := []struct {
+		name        string
+		sourceFiles []string
+		order       []string
+		expected    string
+	}{
+		{
+			name:        "Ordered blocks",
+			sourceFiles: []string{"testdata/ordered_blocks.md"},
+			order:       []string{"print1", "print2", "print3"},
+			expected: `print(1)
+
+print(2)
+
+print(3)
+`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tangler := tangle.NewTangler(tangle.CustomOrderOption(tc.order))
+			output, err := tangler.Tangle(tc.sourceFiles...)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expected, string(output))
+		})
+	}
+}

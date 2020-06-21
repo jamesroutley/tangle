@@ -21,3 +21,9 @@ func RegexFilterOption(re *regexp.Regexp) TanglerOption {
 		tangler.filters = append(tangler.filters, filter)
 	}
 }
+
+func CustomOrderOption(blockNames []string) TanglerOption {
+	return func(tangler *Tangler) {
+		tangler.order = blockNames
+	}
+}
