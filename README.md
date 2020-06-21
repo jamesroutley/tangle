@@ -107,7 +107,7 @@ file which tells Tangle what you want it to do.
 
 Running `tangle --init` will generate a new config file, which looks like:
 
-```json
+```javascript
 {
   "targets": [
     {
