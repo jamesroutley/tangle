@@ -35,7 +35,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.Flags().BoolVar(&watch, "watch", false, "Watch the input file, and recompile when it changes")
 	rootCmd.Flags().StringVar(&outfile, "outfile", "", "Name of a file to write the output to. Writes to stdout if none provided.")
-	rootCmd.Flags().StringVar(&configfile, "configfile", "tangle.json", "Path to a config file")
+	rootCmd.Flags().StringVar(&configfile, "configfile", ".tangle.json", "Path to a config file")
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

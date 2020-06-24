@@ -103,7 +103,7 @@ Code block names can't contain spaces.
 The simple usage above should cater for most use cases, but Tangle also supports
 more complex projects which involve multiple files, multiple outputs and/or
 multiple languages. To start using these features, we'll need to write a config
-file which tells Tangle what you want it to do.
+file, `.tangle.json`, which tells Tangle what you want it to do.
 
 Config files have the following schema:
 
