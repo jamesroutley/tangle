@@ -3,16 +3,9 @@ package tangle
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"strings"
-)
 
-type CodeBlock struct {
-	Language string
-	// Name is the name assigned to the code block by the user. It can be empty
-	Name string
-	Code string
-}
+	"github.com/jamesroutley/tangle/parser"
+)
 
 type Tangler struct {
 	filters []Filter
@@ -35,7 +28,7 @@ func (t *Tangler) Tangle(sourceFiles ...string) ([]byte, error) {
 
 	filteredBlocks := filterBlocks(blocks, t.filters)
 
-	var orderedBlocks []*CodeBlock
+	var orderedBlocks []*parser.CodeBlock
 	if len(t.order) > 0 {
 		var err error
 		orderedBlocks, err = explicitlyOrderBlocks(filteredBlocks, t.order)
@@ -56,9 +49,9 @@ func (t *Tangler) Tangle(sourceFiles ...string) ([]byte, error) {
 	return bytes.TrimSuffix(output.Bytes(), []byte("\n")), nil
 }
 
-func extractBlocksFromFiles(sourceFiles []string) (allBlocks []*CodeBlock, err error) {
+func extractBlocksFromFiles(sourceFiles []string) (allBlocks []*parser.CodeBlock, err error) {
 	for _, source := range sourceFiles {
-		blocks, err := extractBlocksFromFile(source)
+		blocks, err := parser.Parse(source)
 		if err != nil {
 			return nil, err
 		}
@@ -67,45 +60,7 @@ func extractBlocksFromFiles(sourceFiles []string) (allBlocks []*CodeBlock, err e
 	return allBlocks, nil
 }
 
-func extractBlocksFromFile(filename string) ([]*CodeBlock, error) {
-	source, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	fencedCodeBlocks, err := getFencedCodeBlocksFromMarkdown(source)
-	if err != nil {
-		return nil, err
-	}
-
-	var codeBlocks []*CodeBlock
-
-	for _, block := range fencedCodeBlocks {
-		var name string
-		info := string(block.Info.Text(source))
-		if infoParts := strings.Fields(info); len(infoParts) >= 2 {
-			name = infoParts[1]
-		}
-
-		var code bytes.Buffer
-		for j := 0; j < block.Lines().Len(); j++ {
-			line := block.Lines().At(j)
-			code.Write(line.Value(source))
-		}
-
-		codeBlock := &CodeBlock{
-			Language: string(block.Language(source)),
-			Name:     name,
-			Code:     code.String(),
-		}
-
-		codeBlocks = append(codeBlocks, codeBlock)
-	}
-
-	return codeBlocks, nil
-}
-
-func filterBlocks(blocks []*CodeBlock, filters []Filter) (filtered []*CodeBlock) {
+func filterBlocks(blocks []*parser.CodeBlock, filters []Filter) (filtered []*parser.CodeBlock) {
 	for _, block := range blocks {
 		if !allFilters(block, filters...) {
 			continue
@@ -115,7 +70,7 @@ func filterBlocks(blocks []*CodeBlock, filters []Filter) (filtered []*CodeBlock)
 	return filtered
 }
 
-func orderBlocks(blocks []*CodeBlock) (orderedBlocks []*CodeBlock) {
+func orderBlocks(blocks []*parser.CodeBlock) (orderedBlocks []*parser.CodeBlock) {
 	namedBlockIndex := map[string]int{}
 	for _, block := range blocks {
 		if block.Name != "" {
@@ -137,9 +92,9 @@ func orderBlocks(blocks []*CodeBlock) (orderedBlocks []*CodeBlock) {
 }
 
 func explicitlyOrderBlocks(
-	blocks []*CodeBlock, order []string,
-) (orderedBlocks []*CodeBlock, err error) {
-	blocksByName := map[string]*CodeBlock{}
+	blocks []*parser.CodeBlock, order []string,
+) (orderedBlocks []*parser.CodeBlock, err error) {
+	blocksByName := map[string]*parser.CodeBlock{}
 	for _, block := range blocks {
 		if block.Name == "" {
 			continue
