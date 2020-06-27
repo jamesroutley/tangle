@@ -12,8 +12,8 @@ you've written.
 
 ## Features
 
-- A `--watch` option, to automatically re-run on changes
-- Putting code written in different languages into different output files
+- A `--watch` option, which automatically re-runs Tangke when your Markdown files change
+- Saving code written in different languages in different output files
 - Placing code blocks in the outputted file in a different order to how they're
   defined in the Markdown file
 - Rewriting code blocks
@@ -75,7 +75,7 @@ Let's say you're writing a blog post about optimising some code
 
 By default, Tangle will concatenate all code blocks. Sometimes however, you want
 a later code block to replace an earlier one. You can do this by naming your
-code blocks. Name a code block by adding a name after the language definition:
+code blocks by adding a name after the language definition:
 
 ````markdown
 ```javascript greeting
