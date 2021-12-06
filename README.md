@@ -12,7 +12,7 @@ you've written.
 
 ## Features
 
-- A `--watch` option, which automatically re-runs Tangke when your Markdown files change
+- A `--watch` option, which automatically re-runs Tangle when your Markdown files change
 - Saving code written in different languages in different output files
 - Placing code blocks in the outputted file in a different order to how they're
   defined in the Markdown file
